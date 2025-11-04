@@ -39,4 +39,10 @@ serviceAccount*.json
 
 # Logs
 logs/
-*.log
+*.log.venv/
+__pycache__/
+*.pyc
+.DS_Store
+data/*.db
+.env
+
