@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.dist/
+.build/
+
+# Virtualenv
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+
+# App data
+backend/data/
+backend/state/
+*.db
+*.sqlite
+*.sqlite3
+
+# Env/Secrets
+.env
+.env.*
+*.key
+*.pem
+*.p12
+serviceAccount*.json
+
+# Logs
+logs/
+*.log
