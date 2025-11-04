@@ -5,12 +5,12 @@ URL = os.getenv("SERVER_URL", "http://127.0.0.1:8000/v1/ingest")
 VEHICLE_ID = os.getenv("VEHICLE_ID", "bus-01")
 SECRET = os.getenv("DEVICE_SECRET", "DEV_DEFAULT_SECRET")
 
+# backend/scripts/demo_feed.py 중 path 수정
 path = [
-    (37.3752, 126.6333),  # 정문
-    (37.3758, 126.6342),
-    (37.3766, 126.6358),  # 7호관
-    (37.3771, 126.6362),
-    (37.3773, 126.6365),  # 기숙사
+    (37.385524,126.638650),  # 인천대입구역
+    (37.377730,126.635094),  # 인천대정문
+    (37.373291,126.634761),  # 인천대공과대
+    (37.374114,126.630295),  # 인천대생활원
 ]
 
 def sig(body: bytes) -> str:
