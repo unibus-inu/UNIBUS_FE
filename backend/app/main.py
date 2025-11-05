@@ -12,7 +12,8 @@ from app.api.v1.route import router as route_router
 from app.api.v1.eta import router as eta_router
 from app.api.compat import router as compat_router
 from app.api.v1.debug import router as debug_router
-
+# app/main.py (기존 라우터들 아래에 추가)
+from app.api.v1.eta_ensemble import router as eta_ensemble_router
 
 setup_logging()
 app = FastAPI(title=settings.APP_NAME)
@@ -46,3 +47,4 @@ app.include_router(eta_router,      prefix="/v1")
 app.include_router(ingest_router)   # alias: /ingest
 app.include_router(compat_router)   # /api/*, /ws/*
 app.include_router(debug_router, prefix="/v1")
+app.include_router(eta_ensemble_router)
