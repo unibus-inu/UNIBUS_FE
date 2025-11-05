@@ -41,3 +41,5 @@ class Position(Base):
     heading: Mapped[float | None] = mapped_column(Float)
     hdop: Mapped[float | None] = mapped_column(Float)
     src: Mapped[str | None] = mapped_column(String, default="gps")
+
+VehiclePosition = Position
