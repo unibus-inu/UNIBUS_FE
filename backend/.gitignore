@@ -1,0 +1,6 @@
+
+# secrets & build
+backend/.env
+backend/data/
+**/__pycache__/
+*.pyc
