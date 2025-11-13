@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from app.core.logging import setup_logging
 from app.core.config import settings
 from app.db.session import engine
@@ -12,11 +13,12 @@ from app.api.v1.route import router as route_router
 from app.api.v1.eta import router as eta_router
 from app.api.compat import router as compat_router
 from app.api.v1.debug import router as debug_router
-# app/main.py (기존 라우터들 아래에 추가)
+from app.api.v1.playground import router as playground_router
 from app.api.v1.eta_ensemble import router as eta_ensemble_router
 
 setup_logging()
 app = FastAPI(title=settings.APP_NAME)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.on_event("startup")
 def on_startup():
@@ -42,6 +44,7 @@ app.include_router(vehicles_router, prefix="/v1")
 app.include_router(stops_router,    prefix="/v1")
 app.include_router(route_router,    prefix="/v1")
 app.include_router(eta_router,      prefix="/v1")
+app.include_router(playground_router, prefix="/v1")
 
 # Compatibility & aliases
 app.include_router(ingest_router)   # alias: /ingest
