@@ -20,7 +20,7 @@ STOPS = [
     # seq 1..N (노선 진행 순서대로)
     {"id": "stop-incheon-univ-stn", "name": "인천대입구역", "lat": 37.385524, "lon": 126.638650, "seq": 1},
     {"id": "stop-main-gate",        "name": "인천대정문",   "lat": 37.377730, "lon": 126.635094, "seq": 2},
-    {"id": "stop-eng",              "name": "인천대공과대", "lat": 37.373291, "lon": 126.634761, "seq": 3},
+    {"id": "stop-eng",              "name": "인천대공과대", "lat": 37.37418, "lon": 126.6344, "seq": 3},
     {"id": "stop-dorm",             "name": "인천대생활원", "lat": 37.374114, "lon": 126.630295, "seq": 4},
 ]
 
