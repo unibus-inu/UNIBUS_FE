@@ -1,6 +1,24 @@
 from sqlalchemy import String, Integer, Float, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.base import Base
+from sqlalchemy import Column, Integer, String, Float, BigInteger, DateTime
+from sqlalchemy.sql import func
+from app.db.base import Base  # 공용 Declarative Base
+
+class RideSurvey(Base):
+    __tablename__ = "ride_survey"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(64), nullable=True)          # 익명/가명 가능
+    vehicle_id = Column(String(64), nullable=False)
+    board_stop = Column(String(128), nullable=False)
+    board_time = Column(DateTime(timezone=True), nullable=False)      # UTC 저장 권장
+    class_building = Column(String(32), nullable=False)  # 예: "N"
+    class_room = Column(String(32), nullable=False)      # 예: "401"
+    class_start_time = Column(DateTime(timezone=True), nullable=False)
+    arrival_time = Column(DateTime(timezone=True), nullable=False)
+    travel_time_min = Column(Integer, nullable=False)
+    early_min = Column(Integer, nullable=False, default=0)   # 수업 기준 ‘얼마나 일찍’
+    late_min  = Column(Integer, nullable=False, default=0)   # 수업 기준 ‘얼마나 지각’
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class Route(Base):
     __tablename__ = "routes"

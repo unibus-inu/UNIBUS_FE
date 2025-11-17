@@ -11,13 +11,15 @@ from app.api.v1.vehicles import router as vehicles_router
 from app.api.v1.stops import router as stops_router
 from app.api.v1.route import router as route_router
 from app.api.v1.eta import router as eta_router
+from app.api.v1.survey import router as survey_router
 from app.api.compat import router as compat_router
 from app.api.v1.debug import router as debug_router
 from app.api.v1.playground import router as playground_router
 from app.api.v1.eta_ensemble import router as eta_ensemble_router
-
-setup_logging()
+from app.api.v1.campus import router as campus_router
+from fastapi.responses import FileResponse
 app = FastAPI(title=settings.APP_NAME)
+setup_logging()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.on_event("startup")
@@ -36,15 +38,22 @@ def root():
 @app.get("/health")
 def health_root():
     return {"ok": True}
+ # 파일 상단 import
+
+@app.get("/map.html")
+def serve_map():
+    return FileResponse("public/map.html")
 
 # v1 APIs
 app.include_router(health_router,   prefix="/v1")
 app.include_router(ingest_router,   prefix="/v1")
-app.include_router(vehicles_router, prefix="/v1")
+app.include_router(vehicles_router)
 app.include_router(stops_router,    prefix="/v1")
 app.include_router(route_router,    prefix="/v1")
 app.include_router(eta_router,      prefix="/v1")
+app.include_router(survey_router)
 app.include_router(playground_router, prefix="/v1")
+app.include_router(campus_router)
 
 # Compatibility & aliases
 app.include_router(ingest_router)   # alias: /ingest

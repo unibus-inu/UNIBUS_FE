@@ -7,7 +7,8 @@ from app.db import models
 
 router = APIRouter()
 
-@router.post("/v1/ingest")
+
+@router.post("/ingest")
 async def ingest(request: Request, db: Session = Depends(get_db)):
     # 1) 원본 바이트 확보
     raw: bytes = await request.body()

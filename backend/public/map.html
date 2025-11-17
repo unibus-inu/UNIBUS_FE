@@ -1,0 +1,36 @@
+<!-- public/map.html -->
+<!DOCTYPE html><html><head>
+<meta charset="utf-8" />
+<title>Shuttle Live</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<style>html,body,#map{height:100%;margin:0}</style>
+</head><body>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const VEHICLE_ID = new URL(location).searchParams.get("vehicle_id") || "bus-001";
+const API_BASE   = location.origin; // 같은 오리진 가정
+
+const map = L.map('map').setView([37.375,126.633], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+const marker = L.marker([37.375,126.633]).addTo(map);
+const trail  = L.polyline([], {weight:4}).addTo(map);
+
+let lastTs = 0;
+async function tick(){
+  try{
+    const r = await fetch(`${API_BASE}/v1/vehicles/${encodeURIComponent(VEHICLE_ID)}/last`);
+    if(!r.ok) return;
+    const d = await r.json();
+    if(d.ts && d.ts !== lastTs){
+      lastTs = d.ts;
+      marker.setLatLng([d.lat, d.lon]);
+      trail.addLatLng([d.lat, d.lon]);
+      if(trail.getLatLngs().length === 1){ map.setView([d.lat, d.lon], 15); }
+    }
+  }catch(e){}
+}
+setInterval(tick, 1000);
+tick();
+</script>
+</body></html>
