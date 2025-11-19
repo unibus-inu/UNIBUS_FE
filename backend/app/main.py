@@ -17,6 +17,7 @@ from app.api.v1.debug import router as debug_router
 from app.api.v1.playground import router as playground_router
 from app.api.v1.eta_ensemble import router as eta_ensemble_router
 from app.api.v1.campus import router as campus_router
+from app.api.v1.auth import router as auth_router
 from fastapi.responses import FileResponse
 app = FastAPI(title=settings.APP_NAME)
 setup_logging()
@@ -54,6 +55,7 @@ app.include_router(eta_router,      prefix="/v1")
 app.include_router(survey_router)
 app.include_router(playground_router, prefix="/v1")
 app.include_router(campus_router)
+app.include_router(auth_router)
 
 # Compatibility & aliases
 app.include_router(ingest_router)   # alias: /ingest
