@@ -1,5 +1,8 @@
 package com.example.unibus.ui.screens.login
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,21 +22,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unibus.R
 
-// 하드코딩된 색상 정의(val UnibusBlue) 삭제함 -> Theme에서 가져옴
-
 @Composable
 fun LoginScreen(
     onSignupClick: () -> Unit = {},
-    onFindPasswordClick: () -> Unit = {}
+    onFindPasswordClick: () -> Unit = {},
+    onLoginSuccess: () -> Unit = {} // 로그인 성공 시 실행할 콜백 추가
 ) {
     // 입력값 상태 관리
     var idText by remember { mutableStateOf("") }
     var passwordText by remember { mutableStateOf("") }
+    var showLoginError by remember { mutableStateOf(false) } // 에러 메시지 상태
 
     val scrollState = rememberScrollState()
 
     Scaffold(
-        // Theme.kt에서 설정한 background 색상(White) 사용
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
@@ -45,7 +47,6 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // 상단 여백
             Spacer(modifier = Modifier.height(80.dp))
 
             // --- 1. 로고 영역 ---
@@ -59,15 +60,16 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(60.dp))
 
             // --- 2. 입력 필드 영역 ---
-            // 아이디 입력
             OutlinedTextField(
                 value = idText,
-                onValueChange = { idText = it },
+                onValueChange = {
+                    idText = it
+                    showLoginError = false // 입력 시 에러 메시지 숨김
+                },
                 label = { Text("이메일") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
-                // 텍스트 필드 색상도 테마의 Primary(파란색)를 따라감
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     focusedLabelColor = MaterialTheme.colorScheme.primary,
@@ -77,10 +79,12 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 비밀번호 입력
             OutlinedTextField(
                 value = passwordText,
-                onValueChange = { passwordText = it },
+                onValueChange = {
+                    passwordText = it
+                    showLoginError = false // 입력 시 에러 메시지 숨김
+                },
                 label = { Text("비밀번호") },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -94,27 +98,44 @@ fun LoginScreen(
                 )
             )
 
+            // 에러 메시지 (로그인 실패 시 표시)
+            AnimatedVisibility(
+                visible = showLoginError,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Text(
+                    text = "아이디 또는 비밀번호를 확인해주세요.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // --- 3. 로그인 버튼 ---
             Button(
                 onClick = {
-                    // TODO: 서버 로그인 API 연동
+                    // TODO: 실제 서버 API 연동 위치
+                    // 임시 로그인 로직 (테스트용)
+                    if (idText == "test" && passwordText == "1234") {
+                        onLoginSuccess()
+                    } else {
+                        showLoginError = true
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(12.dp),
-                // Theme.kt의 primary 색상(UnibusBlue) 사용
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
                 Text(
                     text = "로그인",
-                    // Type.kt에서 정의한 버튼용 폰트 스타일(Bold, 16sp) 사용
                     style = MaterialTheme.typography.labelLarge,
-                    // Theme.kt의 onPrimary 색상(White) 사용
                     color = MaterialTheme.colorScheme.onPrimary
                 )
             }
@@ -146,9 +167,7 @@ fun LoginScreen(
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
-    // 프리뷰에서도 테마를 확인하려면 UNIBUSTheme로 감싸주는 것이 좋습니다.
-    // (MainActivity에서는 이미 감싸져 있으니 실제 앱에선 상관없습니다)
     com.example.unibus.ui.theme.UNIBUSTheme {
-        LoginScreen(onSignupClick = {})
+        LoginScreen(onSignupClick = {}, onFindPasswordClick = {}, onLoginSuccess = {})
     }
 }
