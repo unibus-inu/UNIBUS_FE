@@ -13,19 +13,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.unibus.R
 
-// UNIBUS 브랜드 컬러
-val UnibusBlue = Color(0xFF2979FF)
+// 하드코딩된 색상 정의(val UnibusBlue) 삭제함 -> Theme에서 가져옴
 
 @Composable
-fun LoginScreen( onSignupClick: () -> Unit ={} ) {
+fun LoginScreen(
+    onSignupClick: () -> Unit = {},
+    onFindPasswordClick: () -> Unit = {}
+) {
     // 입력값 상태 관리
     var idText by remember { mutableStateOf("") }
     var passwordText by remember { mutableStateOf("") }
@@ -33,7 +33,8 @@ fun LoginScreen( onSignupClick: () -> Unit ={} ) {
     val scrollState = rememberScrollState()
 
     Scaffold(
-        containerColor = Color.White
+        // Theme.kt에서 설정한 background 색상(White) 사용
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -44,15 +45,14 @@ fun LoginScreen( onSignupClick: () -> Unit ={} ) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // 상단 여백 조금 줄임 (로고가 하나 빠졌으므로)
+            // 상단 여백
             Spacer(modifier = Modifier.height(80.dp))
 
-            // --- 1. 로고 영역 (텍스트 로고만 유지) ---
-            // 버스 아이콘(unibus_logo) 제거됨
+            // --- 1. 로고 영역 ---
             Image(
-                painter = painterResource(id = R.drawable.unibus_text), // 텍스트 로고
+                painter = painterResource(id = R.drawable.unibus_text),
                 contentDescription = "Unibus Text",
-                modifier = Modifier.width(160.dp), // 크기 살짝 키움
+                modifier = Modifier.width(160.dp),
                 contentScale = ContentScale.Fit
             )
 
@@ -63,10 +63,16 @@ fun LoginScreen( onSignupClick: () -> Unit ={} ) {
             OutlinedTextField(
                 value = idText,
                 onValueChange = { idText = it },
-                label = { Text("아이디") },
+                label = { Text("이메일") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                singleLine = true
+                singleLine = true,
+                // 텍스트 필드 색상도 테마의 Primary(파란색)를 따라감
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    cursorColor = MaterialTheme.colorScheme.primary
+                )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -80,7 +86,12 @@ fun LoginScreen( onSignupClick: () -> Unit ={} ) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                singleLine = true
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    cursorColor = MaterialTheme.colorScheme.primary
+                )
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -94,13 +105,17 @@ fun LoginScreen( onSignupClick: () -> Unit ={} ) {
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = UnibusBlue)
+                // Theme.kt의 primary 색상(UnibusBlue) 사용
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
             ) {
                 Text(
                     text = "로그인",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    // Type.kt에서 정의한 버튼용 폰트 스타일(Bold, 16sp) 사용
+                    style = MaterialTheme.typography.labelLarge,
+                    // Theme.kt의 onPrimary 색상(White) 사용
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             }
 
@@ -118,12 +133,10 @@ fun LoginScreen( onSignupClick: () -> Unit ={} ) {
                     color = Color.LightGray,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
-                TextButton(onClick = { /* TODO: 비번 찾기 이동 */ }) {
+                TextButton(onClick = onFindPasswordClick) {
                     Text("비밀번호 찾기", color = Color.Gray)
                 }
             }
-
-            // 소셜 로그인 버튼 영역 제거됨
 
             Spacer(modifier = Modifier.height(40.dp))
         }
@@ -133,5 +146,9 @@ fun LoginScreen( onSignupClick: () -> Unit ={} ) {
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
-    LoginScreen(onSignupClick = {})
+    // 프리뷰에서도 테마를 확인하려면 UNIBUSTheme로 감싸주는 것이 좋습니다.
+    // (MainActivity에서는 이미 감싸져 있으니 실제 앱에선 상관없습니다)
+    com.example.unibus.ui.theme.UNIBUSTheme {
+        LoginScreen(onSignupClick = {})
+    }
 }
