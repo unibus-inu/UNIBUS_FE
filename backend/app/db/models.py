@@ -1,7 +1,17 @@
-from sqlalchemy import String, Integer, Float, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Column, Integer, String, Float, BigInteger, DateTime
 from sqlalchemy.sql import func
+
 from app.db.base import Base  # 공용 Declarative Base
 
 class RideSurvey(Base):
@@ -61,3 +71,28 @@ class Position(Base):
     src: Mapped[str | None] = mapped_column(String, default="gps")
 
 VehiclePosition = Position
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255), nullable=True)
+    password_hash = Column(String(255), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    tokens: Mapped[list["AuthToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class AuthToken(Base):
+    __tablename__ = "auth_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(String(128), nullable=False, unique=True, index=True)
+    issued_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="tokens")

@@ -32,6 +32,17 @@ class Settings(BaseSettings):
     KAKAO_REST_API_KEY: str | None = None
     TMAP_APP_KEY: str | None = None
 
+    # ==== auth ====
+    AUTH_TOKEN_TTL_MINUTES: int = 60 * 24  # default: 1 day
+    PASSWORD_HASH_ITERATIONS: int = 320_000
+
+    # ==== vehicle monitoring ====
+    MONITOR_NO_SIGNAL_SEC: int = 120
+    MONITOR_LOOKBACK_SEC: int = 600
+    MONITOR_STALL_SEC: int = 180
+    MONITOR_STALL_RADIUS_M: float = 20.0
+    MONITOR_CONGESTION_SPEED_MPS: float = 1.5
+
     # ==== database ====
     # default to a local sqlite DB under backend/data/
     DB_URL: str = "sqlite:///./data/app.db"

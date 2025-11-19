@@ -5,6 +5,7 @@ from app.api.deps import get_db
 from app.db import models
 from app.repositories.position_repo import get_latest_position
 from app.schemas.eta import LatestOut
+from app.services import vehicle_monitor
 
 router = APIRouter(prefix="/v1", tags=["vehicles"])
 
@@ -58,6 +59,16 @@ def latest(vehicle_id: str, db: Session = Depends(get_db)):
         speed_mps=pos.speed_mps,
         heading=pos.heading,
     )
+
+
+@router.get("/vehicles/{vehicle_id}/status")
+def vehicle_status(vehicle_id: str, db: Session = Depends(get_db)):
+    return vehicle_monitor.classify_vehicle_status(db, vehicle_id)
+
+
+@router.get("/vehicles/status")
+def vehicles_status(db: Session = Depends(get_db)):
+    return vehicle_monitor.classify_all_vehicle_statuses(db)
 
 
 __all__ = ["router"]
