@@ -1,131 +1,107 @@
 package com.example.unibus.ui.screens.prediction
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.rounded.BusAlert
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.rounded.DirectionsBus
+import androidx.compose.material.icons.rounded.DirectionsWalk
+import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-// ★ [수정됨]: 중복 Import 제거 및 정리
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
-import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
-import androidx.compose.foundation.shape.CircleShape // CircleShape 추가
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import com.example.unibus.ui.screens.home.BusInfo
 
+// ★ [수정됨] PredictionScreen과 타입을 맞추기 위해 Destination 사용 (정의는 PredictionScreen.kt에 있는 것을 공유하거나 여기서 재정의해도 됩니다. 패키지가 같으므로 여기선 제거하고 PredictionScreen의 것을 씁니다.)
+// 만약 "Unresolved reference: Destination" 오류가 나면 아래 주석을 해제하세요.
+// data class Destination(val id: Int, val name: String, val detail: String, val type: String)
 
-// 이 파일의 독립 실행성을 위해 Building 데이터 클래스를 재정의합니다.
-// (실제 프로젝트에서는 PredictionScreen.kt 파일에서 import하여 사용합니다.)
 // 예측 결과 데이터 모델
 data class PredictionResult(
     val busName: String,
-    val totalRemainingSeconds: Int, // 남은 시간 (초 단위)
-    val status: String, // 버스의 현재 위치/상태
-    val color: Color // 버스 노선 색상
+    val totalRemainingSeconds: Int,
+    val status: String,
+    val color: Color
 )
-
-// UI에서 사용할 색상 정의 (PredictionScreen.kt의 UnibusBlue와 White 대체)
+// UI에서 사용할 색상 정의
 private val UnibusBlue = Color(0xFF0D47A1)
 private val White = Color(0xFFFFFFFF)
+private val DarkGray = Color(0xFF424242)
+private val LightGrayBackground = Color(0xFFEEEEEE)
 
 // --- 더미 데이터 ---
-// ★ 예측 로직에 필요한 더미 시간 분해 데이터 추가
-data class TimeDetail(val label: String, val durationMinutes: Int, val icon: Color)
+data class TimeDetail(val label: String, val durationMinutes: Int, val icon: Color, val iconVector: androidx.compose.ui.graphics.vector.ImageVector)
 
 val mockPredictionDetails = listOf(
-    TimeDetail("도보 이동 (집 -> 정류장)", 8, Color(0xFF90A4AE)),
-    TimeDetail("버스 대기 시간", 2, Color(0xFFFFB74D)),
-    TimeDetail("버스 탑승 시간 (셔틀 A)", 25, UnibusBlue),
-    TimeDetail("캠퍼스 도보 (정문 -> 건물)", 5, Color(0xFF4CAF50)),
+    TimeDetail("정류장 도보", 8, Color(0xFF90A4AE), Icons.Rounded.DirectionsWalk),
+    TimeDetail("버스 대기", 2, Color(0xFFFFB300), Icons.Rounded.DirectionsBus),
+    TimeDetail("버스 탑승", 25, UnibusBlue, Icons.Rounded.DirectionsBus),
+    TimeDetail("캠퍼스 도보", 5, Color(0xFF4CAF50), Icons.Rounded.DirectionsWalk),
 )
 // --- /더미 데이터 ---
 
 
-// ---------------------------------------------------------
-// Step 2: 예측 대시보드 화면 (PredictionDashboardScreen)
-// ---------------------------------------------------------
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PredictionDashboardScreen(
-    building: Building,
-    onBackClick: () -> Unit
+    building: Destination, // ★ [수정] 파라미터 타입을 Destination으로 변경
+    onBackClick: () -> Unit,
+    onMapClick: () -> Unit
 ) {
-    // 1. 실시간 현재 시간 상태
-    var currentTime by remember { mutableStateOf(LocalTime.now()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            currentTime = LocalTime.now()
-        }
-    }
-    // ★ [수정] timeFormatter는 LocalTime.now()와 무관하므로 외부에 선언 (경고 해결)
-    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+    // 1. 실시간 시간 관련 상태
     val displayTimeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm") }
 
-    // 2. 예측 데이터 목록 (카운트다운용)
-    val initialPredictions = remember {
-        listOf(
-            PredictionResult("M6724 (강남)", 185, "이전 정류장 출발", Color(0xFFE53935)),
-            PredictionResult("909 (송도)", 540, "3번째 전 정류장", Color(0xFF388E3C)),
-        )
-    }
-    val countdownPredictions = remember {
-        initialPredictions.map { it.totalRemainingSeconds }.toMutableStateList()
-    }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            for (i in countdownPredictions.indices) {
-                if (countdownPredictions[i] > 0) {
-                    countdownPredictions[i]--
-                }
-            }
-        }
-    }
-
-    // 3. ★ [핵심 로직] 최종 도착 시간 및 출발 시간 계산
-    val fastestBusEtaMinutes = 3
-    val preBusTime = mockPredictionDetails.filter { it.label != "버스 탑승 시간 (셔틀 A)" && it.label != "캠퍼스 도보 (정문 -> 건물)" }
-        .sumOf { it.durationMinutes }
-
-    val totalBusRideAndWalk = mockPredictionDetails.filter { it.label == "버스 탑승 시간 (셔틀 A)" || it.label == "캠퍼스 도보 (정문 -> 건물)" }.sumOf { it.durationMinutes }
-
-
-    // 현재 시간 + (최소 출발 시간 + 버스 대기 + 탑승 + 도보) 를 계산하여 예상 도착 시간 산출
-    val arrivalTime = LocalTime.now().plusMinutes(totalBusRideAndWalk.toLong() + fastestBusEtaMinutes)
-    val mustLeaveTime = arrivalTime.minusMinutes(totalBusRideAndWalk.toLong() + fastestBusEtaMinutes + preBusTime.toLong()) // 가정을 위해 단순하게 계산
-
-    val targetTime = arrivalTime.format(displayTimeFormatter)
-    val displayMustLeaveTime = mustLeaveTime.format(displayTimeFormatter)
-    val totalDuration = totalBusRideAndWalk + fastestBusEtaMinutes
+    // 2. 예측 로직 (핵심 계산)
+    val totalDuration = mockPredictionDetails.sumOf { it.durationMinutes }
+    val bestBus = "8번 버스"
+    val busEta = 2 // 분 뒤 도착
     val arrivalProbability = 92
-    val nextAlternative = "15분 뒤 셔틀 B"
+    val nextAlternative = "셔틀 A, 15분 뒤"
+
+    // [최종 시간 계산]
+    val arrivalTime = LocalTime.now().plusMinutes(totalDuration.toLong())
+    val finalArrivalTime = arrivalTime.format(displayTimeFormatter)
+
+    // 최소 출발 시간
+    val mustLeaveTime = arrivalTime.minusMinutes(totalDuration.toLong())
+    val finalMustLeaveTime = mustLeaveTime.format(displayTimeFormatter)
+
 
     Scaffold(
         containerColor = Color(0xFFF0F0F0), // 연한 회색 배경
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("도착 예측 분석", fontWeight = FontWeight.Bold) },
+                title = { Text("${building.name} 예측 분석", fontWeight = FontWeight.Bold) }, // name 속성 사용
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "건물 선택으로 돌아가기")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
                     }
                 },
                 actions = {
@@ -137,203 +113,306 @@ fun PredictionDashboardScreen(
             )
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(top = 24.dp, bottom = 24.dp)
         ) {
 
-            // ★ [추가] 최종 결론 영역
-            PredictionResultCard(
-                building = building,
-                targetTime = targetTime,
-                mustLeaveTime = displayMustLeaveTime,
-                totalDuration = totalDuration,
-                arrivalProbability = arrivalProbability,
-                nextAlternative = nextAlternative,
-                details = mockPredictionDetails
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 예측 정보 리스트 헤더
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("실시간 버스 도착 현황", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = Color.DarkGray)
+            // --- A. 최상단 영역 (Result & Action) ---
+            item {
+                ResultActionCard(
+                    building = building,
+                    finalArrivalTime = finalArrivalTime,
+                    bestBus = bestBus,
+                    busEta = busEta,
+                    onCloseClick = onBackClick
+                )
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // 예측 버스 목록
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                items(initialPredictions.indices.toList()) { index ->
-                    PredictionItem(
-                        prediction = initialPredictions[index],
-                        remainingSeconds = countdownPredictions[index]
-                    )
-                }
+            // --- B. 중앙 영역 (Proof & Confidence) ---
+            item {
+                ProofConfidenceCard(
+                    totalDuration = totalDuration,
+                    arrivalProbability = arrivalProbability,
+                    details = mockPredictionDetails
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // --- C. 하단 영역 (Alternatives & Action) ---
+            item {
+                ActionOnlyCard(
+                    mustLeaveTime = finalMustLeaveTime,
+                    nextAlternative = nextAlternative,
+                    onMapClick = onMapClick
+                )
             }
         }
     }
 }
 
 // ---------------------------------------------------------
-// ★ [새로 추가] 예측 최종 결론 카드 컴포넌트 (PredictionResultCard)
+// 컴포넌트 1: A. 최상단 영역 (Result & Action)
 // ---------------------------------------------------------
 @Composable
-fun PredictionResultCard(
-    building: Building,
-    targetTime: String,
-    mustLeaveTime: String,
+fun ResultActionCard(
+    building: Destination, // ★ [수정] Destination 타입 사용
+    finalArrivalTime: String,
+    bestBus: String,
+    busEta: Int,
+    onCloseClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = White),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp).fillMaxWidth()
+        ) {
+            // 1. 최종 도착 시각 (가장 크게 강조)
+            Text(
+                text = "${finalArrivalTime} 도착",
+                fontSize = 48.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = DarkGray
+            )
+            Text(
+                text = "${building.name} 건물 문 앞까지 예상 시각",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // 2. 추천 버스 정보
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(Color(0xFFE3F2FD), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.DirectionsBus,
+                    contentDescription = null,
+                    tint = UnibusBlue,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "${bestBus} 탑승 추천 (${busEta}분 뒤 도착)",
+                    fontWeight = FontWeight.Bold,
+                    color = UnibusBlue
+                )
+            }
+        }
+    }
+}
+
+// ... (나머지 ProofConfidenceCard, ActionOnlyCard, 보조 컴포넌트들은 기존과 동일하므로 그대로 두시면 됩니다)
+// (위의 코드 블록만 덮어쓰셔도 되지만, 안전하게 파일 전체를 붙여넣는 것을 추천드립니다.
+// 아래는 나머지 부분까지 포함한 전체 코드입니다.)
+
+@Composable
+fun ProofConfidenceCard(
     totalDuration: Int,
     arrivalProbability: Int,
-    nextAlternative: String,
     details: List<TimeDetail>
 ) {
-    Column(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        colors = CardDefaults.cardColors(containerColor = White),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        // --- 1. 최종 결론 영역 (최소 출발 시간 & 도착 시각) ---
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = UnibusBlue),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        Column(
+            modifier = Modifier.padding(20.dp).fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp).fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Text(
+                "예상 경로 상세 분석 (${totalDuration}분 소요)",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = DarkGray,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // 1. 예측 신뢰도 게이지
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "놓치지 않으려면",
-                    color = White.copy(alpha = 0.8f),
-                    fontSize = 14.sp
+                // 게이지 차트
+                ConfidenceGauge(
+                    probability = arrivalProbability,
+                    modifier = Modifier.size(100.dp)
                 )
-                Text(
-                    text = "${mustLeaveTime}에 출발해야 합니다!",
-                    color = White,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-                Text(
-                    text = "예상 도착: ${building.name} ${targetTime}",
-                    color = Color(0xFFFFEE58), // 노란색 경고 톤
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // --- 2. 도착 시각 및 부가 정보 ---
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = White),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(modifier = Modifier.padding(20.dp).fillMaxWidth()) {
-
-                // 부가 정보 Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    InfoChip(
-                        label = "총 예상 소요 시간",
-                        value = "${totalDuration}분",
-                        color = UnibusBlue
-                    )
-                    InfoChip(
-                        label = "정시 도착 확률",
-                        value = "$arrivalProbability%",
-                        color = Color(0xFF4CAF50)
-                    )
-                    InfoChip(
-                        label = "캠퍼스 도보",
-                        value = "${mockPredictionDetails.last().durationMinutes}분",
-                        color = Color(0xFFFFB300)
-                    )
+                // 신뢰도 설명
+                Column(modifier = Modifier.weight(1f).padding(start = 20.dp)) {
+                    Text("예측 신뢰도", fontSize = 14.sp, color = Color.Gray)
+                    Text("데이터 기반의 정확도", fontWeight = FontWeight.SemiBold, color = DarkGray)
+                    Text("이 경로의 정시 도착 확률은 높습니다.", fontSize = 12.sp, color = Color(0xFF4CAF50))
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(20.dp))
+            // 2. 시각적 타임라인 (시간 분해 막대)
+            TimeDecompositionBar(details = details)
 
-        // --- 3. 중앙 타임라인 (시간 분해 내역) ---
-        Text(
-            "경로 시간 분해",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp, start = 4.dp)
-        )
+            Spacer(modifier = Modifier.height(20.dp))
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(White, RoundedCornerShape(12.dp))
-                .padding(16.dp)
-        ) {
+            // 3. 타임라인 디테일
             details.forEachIndexed { index, item ->
                 TimelineItem(item = item, isLast = index == details.lastIndex)
             }
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(16.dp))
+@Composable
+fun ActionOnlyCard(
+    mustLeaveTime: String,
+    nextAlternative: String,
+    onMapClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
 
-        // --- 4. 다음 최적 대안 ---
+        // 2. 대안 옵션 (선택적 표시)
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
-            shape = RoundedCornerShape(12.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFDE7)), // 연한 노란색
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFFFB300))
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFFFB300))
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "만약 놓칠 경우, 다음 최적 대안은 ${nextAlternative}에 있습니다.",
-                    fontSize = 14.sp
+                    text = "다음 최적 대안: ${nextAlternative}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // 3. 액션 버튼 (강조)
+        Button(
+            onClick = onMapClick,
+            modifier = Modifier.fillMaxWidth().height(60.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = UnibusBlue)
+        ) {
+            Icon(Icons.Rounded.Map, contentDescription = null, modifier = Modifier.size(28.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("최적 경로 지도로 보기", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+        }
+    }
+}
+
+// --- 보조 컴포넌트 ---
+
+@Composable
+fun ConfidenceGauge(probability: Int, modifier: Modifier) {
+    val angle = (probability * 360 / 100).toFloat()
+    val density = LocalDensity.current
+    val textSizePx = with(density) { 40.sp.toPx() }
+    val yTextOffset = with(density) { 15.dp.toPx() }
+    val strokeWidthPx = with(density) { 10.dp.toPx() }
+
+    val sweepAngle by animateFloatAsState(
+        targetValue = angle,
+        animationSpec = tween(durationMillis = 1000), label = "confidence_sweep_angle"
+    )
+
+    Canvas(modifier = modifier) {
+
+        // 배경 트랙
+        drawArc(
+            color = LightGrayBackground,
+            startAngle = 135f,
+            sweepAngle = 270f,
+            useCenter = false,
+            size = Size(size.width, size.height),
+            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+        )
+
+        // 진행률 바 (초록색)
+        drawArc(
+            color = Color(0xFF4CAF50),
+            startAngle = 135f,
+            sweepAngle = sweepAngle * 270 / 360,
+            useCenter = false,
+            size = Size(size.width, size.height),
+            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+        )
+
+        // 텍스트 중앙에 표시
+        drawIntoCanvas {
+            it.nativeCanvas.apply {
+                val textPaint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.BLACK
+                    textSize = textSizePx
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    isFakeBoldText = true
+                }
+                val x = center.x
+                val y = center.y + yTextOffset
+                drawText("$probability%", x, y, textPaint)
             }
         }
     }
 }
 
-// 부가 정보 칩
 @Composable
-fun InfoChip(label: String, value: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = color)
-        Text(label, fontSize = 12.sp, color = Color.Gray)
+fun TimeDecompositionBar(details: List<TimeDetail>) {
+    val totalTime = details.sumOf { it.durationMinutes }.toFloat()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(16.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(LightGrayBackground)
+    ) {
+        details.forEach { item ->
+            val percentage = item.durationMinutes / totalTime
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(percentage)
+                    .background(item.icon)
+            )
+        }
     }
 }
 
-// 타임라인 항목
 @Composable
 fun TimelineItem(item: TimeDetail, isLast: Boolean) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        // 타임라인 아이콘 및 선
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(24.dp)) {
-            // 아이콘 원
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(36.dp)) {
             Box(
                 modifier = Modifier
-                    .size(12.dp)
+                    .size(24.dp)
                     .clip(CircleShape)
-                    .background(item.icon)
-            )
-            // 수직선
+                    .background(item.icon),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = item.iconVector,
+                    contentDescription = null,
+                    tint = White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
             if (!isLast) {
                 Box(
                     modifier = Modifier
@@ -346,97 +425,9 @@ fun TimelineItem(item: TimeDetail, isLast: Boolean) {
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // 내용
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp)) {
             Text(item.label, fontWeight = FontWeight.Medium, color = Color.Black)
             Text("${item.durationMinutes}분 소요", fontSize = 12.sp, color = Color.Gray)
-        }
-    }
-}
-
-
-// 개별 버스 예측 항목 Composable (PredictionItem)
-@Composable
-fun PredictionItem(prediction: PredictionResult, remainingSeconds: Int) {
-    // 01. 남은 시간 포맷팅 로직
-    val formattedTime by remember(remainingSeconds) {
-        derivedStateOf {
-            if (remainingSeconds <= 0) {
-                "도착 완료"
-            } else {
-                val minutes = TimeUnit.SECONDS.toMinutes(remainingSeconds.toLong())
-                val seconds = remainingSeconds % 60
-                "${minutes}분 ${seconds}초"
-            }
-        }
-    }
-
-    // 02. 상태 텍스트 및 색상 결정
-    val statusText = if (remainingSeconds <= 0) "운행 종료 또는 도착" else prediction.status
-    val timeColor = when {
-        remainingSeconds <= 60 -> Color(0xFFE53935) // 1분 이내 (빨강)
-        remainingSeconds <= 180 -> Color(0xFFFFB300) // 3분 이내 (주황)
-        else -> UnibusBlue // 그 외
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = White),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 노선 색상 바
-            Box(
-                modifier = Modifier
-                    .width(6.dp)
-                    .height(60.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(prediction.color)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // 버스 노선 정보
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.BusAlert,
-                        contentDescription = "버스 아이콘",
-                        tint = prediction.color,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = prediction.busName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = statusText,
-                    color = Color.Gray,
-                    fontSize = 12.sp
-                )
-            }
-
-            // 남은 시간 정보
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "도착까지",
-                    fontSize = 10.sp,
-                    color = Color.DarkGray
-                )
-                Text(
-                    text = formattedTime,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 20.sp,
-                    color = timeColor
-                )
-            }
         }
     }
 }
