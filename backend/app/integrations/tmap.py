@@ -13,7 +13,7 @@ def car_route_distance_time(start_lon: float, start_lat: float, end_lon: float, 
         "reqCoordType": "WGS84GEO", "resCoordType": "WGS84GEO", "sort": "index",
         "startX": start_lon, "startY": start_lat, "endX": end_lon, "endY": end_lat
     }
-    r = requests.post(f"{TMAP_BASE}/tmap/tmap/routes?version=1", headers=headers, json=body, timeout=timeout)
+    r = requests.post(f"{TMAP_BASE}/tmap/routes?version=1", headers=headers, json=body, timeout=timeout)
     r.raise_for_status()
     data = r.json()
     # 1) 루트(distance/duration)
