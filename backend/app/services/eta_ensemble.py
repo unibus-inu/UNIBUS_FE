@@ -207,7 +207,12 @@ def _get_vehicle_and_stop(db: Session, vehicle_id: str, stop_id: str):
     return vpos, stop, route
 
 # ── main ───────────────────────────────────────────────────────────────
-def eta_ensemble_seconds(vehicle_id: str, stop_id: str) -> Dict[str, Any]:
+def eta_ensemble_seconds(
+    vehicle_id: str,
+    stop_id: str,
+    use_tmap: bool = True,
+    use_kakao: bool = True,
+) -> Dict[str, Any]:
     db: Session = SessionLocal()
     try:
         # 최신 위치 읽고, 그 ts로 캐시키 구성
@@ -262,34 +267,42 @@ def eta_ensemble_seconds(vehicle_id: str, stop_id: str) -> Dict[str, Any]:
         baseline_s = float(eta_baseline_s)
 
         # T map: distance only → convert with v_eff, then gate
-        try:
-            dist_m_tmap, _ = tmap_dt(v_lon, v_lat, s_lon, s_lat)
-            eta_tmap = int(math.ceil(dist_m_tmap / v_eff))
-            ok_tmap = _accept_provider_eta(eta_tmap, baseline_s, dist_m_tmap, dist_to_target_m)
-            providers["tmap"] = {
-                "ok": bool(ok_tmap),
-                "distance_m": int(dist_m_tmap),
-                "eta_from_distance_s": eta_tmap,
-            }
-            if ok_tmap:
-                cands.append(eta_tmap); method_parts.append("tmap_distance")
-        except Exception as e:
-            providers["tmap"] = {"ok": False, "error": str(e)}
+        if use_tmap:
+            try:
+                dist_m_tmap, _ = tmap_dt(v_lon, v_lat, s_lon, s_lat)
+                eta_tmap = int(math.ceil(dist_m_tmap / v_eff))
+                ok_tmap = _accept_provider_eta(eta_tmap, baseline_s, dist_m_tmap, dist_to_target_m)
+                providers["tmap"] = {
+                    "ok": bool(ok_tmap),
+                    "distance_m": int(dist_m_tmap),
+                    "eta_from_distance_s": eta_tmap,
+                }
+                if ok_tmap:
+                    cands.append(eta_tmap)
+                    method_parts.append("tmap_distance")
+            except Exception as e:
+                providers["tmap"] = {"ok": False, "error": str(e)}
+        else:
+            providers["tmap"] = {"ok": False, "skipped": True}
 
         # Kakao: distance only → convert with v_eff, then gate
-        try:
-            dist_m_kakao, _ = kakao_dt(v_lon, v_lat, s_lon, s_lat)
-            eta_kakao = int(math.ceil(dist_m_kakao / v_eff))
-            ok_kakao = _accept_provider_eta(eta_kakao, baseline_s, dist_m_kakao, dist_to_target_m)
-            providers["kakao"] = {
-                "ok": bool(ok_kakao),
-                "distance_m": int(dist_m_kakao),
-                "eta_from_distance_s": eta_kakao,
-            }
-            if ok_kakao:
-                cands.append(eta_kakao); method_parts.append("kakao_distance")
-        except Exception as e:
-            providers["kakao"] = {"ok": False, "error": str(e)}
+        if use_kakao:
+            try:
+                dist_m_kakao, _ = kakao_dt(v_lon, v_lat, s_lon, s_lat)
+                eta_kakao = int(math.ceil(dist_m_kakao / v_eff))
+                ok_kakao = _accept_provider_eta(eta_kakao, baseline_s, dist_m_kakao, dist_to_target_m)
+                providers["kakao"] = {
+                    "ok": bool(ok_kakao),
+                    "distance_m": int(dist_m_kakao),
+                    "eta_from_distance_s": eta_kakao,
+                }
+                if ok_kakao:
+                    cands.append(eta_kakao)
+                    method_parts.append("kakao_distance")
+            except Exception as e:
+                providers["kakao"] = {"ok": False, "error": str(e)}
+        else:
+            providers["kakao"] = {"ok": False, "skipped": True}
 
         # near-stop gating: clamp very small remaining distances to small ETAs
         eta_raw = int(round(mean(cands))) if cands else 0
