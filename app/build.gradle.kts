@@ -45,6 +45,8 @@ android {
 dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7") // 버전은 다를 수 있음
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")  // ViewModel 사용을 위해
+    implementation("io.coil-kt:coil-compose:2.6.0")  // 이미지 로딩(프로필 사진 표시)을 위해 (Coil)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
