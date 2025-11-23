@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -40,7 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.example.unibus.R
 import com.example.unibus.ui.theme.UnibusBlue
 import com.example.unibus.ui.theme.White
-import kotlinx.coroutines.delay
+import com.example.unibus.data.UnibusRepository
 import kotlinx.coroutines.launch
 
 // --- 1. 데이터 모델 (BusInfo, Station) ---
@@ -101,14 +104,18 @@ fun MainHomeScreen(
     onModeChange: (Boolean) -> Unit
 ) {
     // 상태 관리
-    val allBusList = if (isGoingToSchool) schoolBuses else homeBuses
+    val baseBusList = if (isGoingToSchool) schoolBuses else homeBuses
+    var liveBusList by remember { mutableStateOf<List<BusInfo>>(emptyList()) }
+    var busError by remember { mutableStateOf<String?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     // 현재 선택된 정류장 상태
     var selectedStation by remember { mutableStateOf(mockStations.first()) }
 
     // 필터링된 버스 리스트
-    val currentBusList = remember(allBusList, selectedStation) {
-        allBusList.filter { it.stationId == selectedStation.id }
+    val currentBusList = remember(liveBusList, baseBusList, selectedStation) {
+        val source = if (liveBusList.isNotEmpty()) liveBusList else baseBusList
+        if (liveBusList.isNotEmpty()) source else source.filter { it.stationId == selectedStation.id }
     }
 
     // 선택된 버스
@@ -123,6 +130,35 @@ fun MainHomeScreen(
     val bottomSheetScaffoldState = rememberBottomSheetScaffoldState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    suspend fun refreshBusArrivals() {
+        isRefreshing = true
+        try {
+            val response = UnibusRepository.busArrivals()
+            liveBusList = response.arrivals.mapIndexed { index, arrival ->
+                BusInfo(
+                    id = index + 1,
+                    number = arrival.route_no,
+                    type = "시내",
+                    eta = arrival.eta_minutes ?: 0,
+                    cost = "유료",
+                    currentLocation = arrival.headsign ?: (arrival.route_name ?: "도착 정보"),
+                    nextBusEta = arrival.eta_minutes_next ?: (arrival.eta_minutes ?: 0) + 8,
+                    nextBusLocation = response.stop_name ?: "정류장",
+                    stationId = selectedStation.id
+                )
+            }
+            busError = null
+        } catch (e: Exception) {
+            busError = e.message
+        } finally {
+            isRefreshing = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        refreshBusArrivals()
+    }
 
     if (showLogoutDialog) {
         AlertDialog(
@@ -208,6 +244,11 @@ fun MainHomeScreen(
                                     selectedBus = bus
                                     onSetSelectedBus(bus)
                                 }
+                            },
+                            isRefreshing = isRefreshing,
+                            errorMessage = busError,
+                            onRefresh = {
+                                scope.launch { refreshBusArrivals() }
                             }
                         )
                     }
@@ -232,6 +273,8 @@ fun MainHomeScreen(
                                 selectedBus = null
                                 onSetSelectedBus(null)
                                 selectedStation = mockStations.first()
+                                liveBusList = emptyList()
+                                busError = null
                             },
                             onPredictionClick = onNavigateToPrediction,
                             onMenuClick = { scope.launch { drawerState.open() } },
@@ -254,10 +297,11 @@ fun BottomSheetContent(
     selectedStation: Station,
     selectedBus: BusInfo?,
     onStationChange: (Station) -> Unit,
-    onBusClick: (BusInfo) -> Unit
+    onBusClick: (BusInfo) -> Unit,
+    isRefreshing: Boolean,
+    errorMessage: String?,
+    onRefresh: () -> Unit
 ) {
-    var isRefreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
     val fastestBus = busList.firstOrNull()
 
     Box(
@@ -343,16 +387,35 @@ fun BottomSheetContent(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 24.dp))
                 }
 
+                errorMessage?.let { msg ->
+                    Text(
+                        text = msg,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
                 // 3. 리스트
                 LazyColumn(contentPadding = PaddingValues(bottom = 20.dp)) {
-                    items(busList) { bus ->
-                        val isSelected = selectedBus?.id == bus.id
-                        BusListItem(
-                            bus = bus,
-                            isSelected = isSelected,
-                            onClick = { onBusClick(bus) }
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                    if (busList.isEmpty() && !isRefreshing) {
+                        item {
+                            Text(
+                                text = "표시할 버스 정보가 없습니다. 새로고침을 눌러주세요.",
+                                modifier = Modifier.padding(horizontal = 24.dp),
+                                color = Color.Gray
+                            )
+                        }
+                    } else {
+                        items(busList) { bus ->
+                            val isSelected = selectedBus?.id == bus.id
+                            BusListItem(
+                                bus = bus,
+                                isSelected = isSelected,
+                                onClick = { onBusClick(bus) }
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
                     }
                 }
             }
@@ -360,13 +423,7 @@ fun BottomSheetContent(
 
         // 새로고침 버튼 (위치: y=70dp)
         FloatingActionButton(
-            onClick = {
-                scope.launch {
-                    isRefreshing = true
-                    delay(1000)
-                    isRefreshing = false
-                }
-            },
+            onClick = onRefresh,
             containerColor = White,
             contentColor = UnibusBlue,
             shape = CircleShape,
@@ -620,6 +677,7 @@ fun MapArea(
     selectedStation: Station,
     onStationClick: (StationMarker) -> Unit
 ) {
+    var translation by remember { mutableStateOf(Offset.Zero) }
     val estimatedArrivalTime = remember(selectedBus) {
         if (selectedBus != null) {
             java.time.LocalTime.now().plusMinutes(selectedBus.eta.toLong())
@@ -633,6 +691,7 @@ fun MapArea(
             .background(Color(0xFFE3F2FD))
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
+                    val adjustedOffset = offset - translation
                     val canvasWidth = size.width
                     val canvasHeight = size.height
 
@@ -641,69 +700,81 @@ fun MapArea(
                         val markerY = marker.yRatio * canvasHeight
                         val clickRadius = 60f
 
-                        if (offset.x > markerX - clickRadius && offset.x < markerX + clickRadius &&
-                            offset.y > markerY - clickRadius && offset.y < markerY + clickRadius) {
+                        if (adjustedOffset.x > markerX - clickRadius && adjustedOffset.x < markerX + clickRadius &&
+                            adjustedOffset.y > markerY - clickRadius && adjustedOffset.y < markerY + clickRadius) {
                             onStationClick(marker)
                             break
                         }
                     }
                 }
             }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        translation += dragAmount
+                    }
+                )
+            }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = center
-            drawCircle(color = UnibusBlue.copy(alpha = 0.2f), radius = 60f, center = center)
-            drawCircle(color = UnibusBlue, radius = 20f, center = center)
+            withTransform({
+                translate(left = translation.x, top = translation.y)
+            }) {
+                val center = center
+                drawCircle(color = UnibusBlue.copy(alpha = 0.2f), radius = 60f, center = center)
+                drawCircle(color = UnibusBlue, radius = 20f, center = center)
 
-            selectedBus?.let { bus ->
-                val busColor = UnibusBlue
-                val startOfBusRoute = Offset(size.width * 0.1f, size.height * 0.2f)
-                val currentBusLocation = Offset(size.width * 0.3f, size.height * 0.4f)
-                val destinationOffset = Offset(size.width * 0.9f, size.height * 0.1f)
-                val stationOffset = mockStationMarkers.firstOrNull { it.id == selectedStation.id }?.let {
-                    Offset(it.xRatio * size.width, it.yRatio * size.height)
-                } ?: center
+                selectedBus?.let { bus ->
+                    val busColor = UnibusBlue
+                    val startOfBusRoute = Offset(size.width * 0.1f, size.height * 0.2f)
+                    val currentBusLocation = Offset(size.width * 0.3f, size.height * 0.4f)
+                    val destinationOffset = Offset(size.width * 0.9f, size.height * 0.1f)
+                    val stationOffset = mockStationMarkers.firstOrNull { it.id == selectedStation.id }?.let {
+                        Offset(it.xRatio * size.width, it.yRatio * size.height)
+                    } ?: center
 
-                drawLine(
-                    color = Color.LightGray.copy(alpha = 0.5f),
-                    start = startOfBusRoute,
-                    end = currentBusLocation,
-                    strokeWidth = 12f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = Color.LightGray.copy(alpha = 0.5f),
-                    start = currentBusLocation,
-                    end = stationOffset,
-                    strokeWidth = 12f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = Color.LightGray.copy(alpha = 0.5f),
-                    start = stationOffset,
-                    end = destinationOffset,
-                    strokeWidth = 12f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
-                    cap = StrokeCap.Round
-                )
+                    drawLine(
+                        color = Color.LightGray.copy(alpha = 0.5f),
+                        start = startOfBusRoute,
+                        end = currentBusLocation,
+                        strokeWidth = 12f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = Color.LightGray.copy(alpha = 0.5f),
+                        start = currentBusLocation,
+                        end = stationOffset,
+                        strokeWidth = 12f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = Color.LightGray.copy(alpha = 0.5f),
+                        start = stationOffset,
+                        end = destinationOffset,
+                        strokeWidth = 12f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
+                        cap = StrokeCap.Round
+                    )
 
-                drawLine(color = UnibusBlue, start = currentBusLocation, end = stationOffset, strokeWidth = 15f, cap = StrokeCap.Round)
+                    drawLine(color = UnibusBlue, start = currentBusLocation, end = stationOffset, strokeWidth = 15f, cap = StrokeCap.Round)
 
-                drawCircle(color = White, radius = 20f, center = currentBusLocation)
-                drawCircle(color = busColor.copy(alpha = 0.8f), radius = 15f, center = currentBusLocation)
-                drawCircle(color = Color.Red, radius = 15f, center = destinationOffset)
-            }
+                    drawCircle(color = White, radius = 20f, center = currentBusLocation)
+                    drawCircle(color = busColor.copy(alpha = 0.8f), radius = 15f, center = currentBusLocation)
+                    drawCircle(color = Color.Red, radius = 15f, center = destinationOffset)
+                }
 
-            mockStationMarkers.forEach { marker ->
-                val markerX = marker.xRatio * size.width
-                val markerY = marker.yRatio * size.height
-                val isSelected = marker.id == selectedStation.id
-                val markerColor = if (isSelected) Color(0xFFFFC107) else Color.DarkGray
+                mockStationMarkers.forEach { marker ->
+                    val markerX = marker.xRatio * size.width
+                    val markerY = marker.yRatio * size.height
+                    val isSelected = marker.id == selectedStation.id
+                    val markerColor = if (isSelected) Color(0xFFFFC107) else Color.DarkGray
 
-                drawCircle(color = markerColor, radius = if (isSelected) 30f else 20f, center = Offset(markerX, markerY))
-                drawCircle(color = White, radius = 8f, center = Offset(markerX, markerY))
+                    drawCircle(color = markerColor, radius = if (isSelected) 30f else 20f, center = Offset(markerX, markerY))
+                    drawCircle(color = White, radius = 8f, center = Offset(markerX, markerY))
+                }
             }
         }
 

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,6 +27,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unibus.ui.theme.UNIBUSTheme
+import com.example.unibus.data.UnibusRepository
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +60,9 @@ fun SignupScreen(
 
     // 스크롤 상태
     val scrollState = rememberScrollState()
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     // 텍스트 필드 스타일
     val textFieldColors = OutlinedTextFieldDefaults.colors(
@@ -248,8 +254,24 @@ fun SignupScreen(
 
             Button(
                 onClick = {
-                    // TODO: 최종 회원가입 데이터 전송 (이메일: $emailId@$emailDomain)
+                    if (!isFormValid || isLoading) return@Button
+                    errorMessage = null
                     val fullEmail = "$emailId@$emailDomain"
+                    scope.launch {
+                        isLoading = true
+                        try {
+                            UnibusRepository.signup(
+                                email = fullEmail,
+                                password = password,
+                                fullName = nickname
+                            )
+                            onNavigateBack()
+                        } catch (e: Exception) {
+                            errorMessage = e.message ?: "회원가입에 실패했습니다."
+                        } finally {
+                            isLoading = false
+                        }
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -261,10 +283,27 @@ fun SignupScreen(
                     disabledContainerColor = Color.Gray
                 )
             ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "가입하기",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (isFormValid) MaterialTheme.colorScheme.onPrimary else Color.White
+                    )
+                }
+            }
+
+            errorMessage?.let { msg ->
                 Text(
-                    text = "가입하기",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (isFormValid) MaterialTheme.colorScheme.onPrimary else Color.White
+                    text = msg,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         }

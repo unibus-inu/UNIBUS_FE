@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,6 +22,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unibus.R
+import com.example.unibus.data.UnibusRepository
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -32,6 +35,9 @@ fun LoginScreen(
     var idText by remember { mutableStateOf("") }
     var passwordText by remember { mutableStateOf("") }
     var showLoginError by remember { mutableStateOf(false) } // 에러 메시지 상태
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val scrollState = rememberScrollState()
 
@@ -99,13 +105,9 @@ fun LoginScreen(
             )
 
             // 에러 메시지 (로그인 실패 시 표시)
-            AnimatedVisibility(
-                visible = showLoginError,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
+            AnimatedVisibility(visible = showLoginError, enter = fadeIn(), exit = fadeOut()) {
                 Text(
-                    text = "아이디 또는 비밀번호를 확인해주세요.",
+                    text = errorMessage ?: "아이디 또는 비밀번호를 확인해주세요.",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 8.dp)
@@ -117,12 +119,20 @@ fun LoginScreen(
             // --- 3. 로그인 버튼 ---
             Button(
                 onClick = {
-                    // TODO: 실제 서버 API 연동 위치
-                    // 임시 로그인 로직 (테스트용)
-                    if (idText == "test" && passwordText == "1234") {
-                        onLoginSuccess()
-                    } else {
-                        showLoginError = true
+                    if (isLoading) return@Button
+                    showLoginError = false
+                    errorMessage = null
+                    scope.launch {
+                        isLoading = true
+                        try {
+                            UnibusRepository.login(email = idText, password = passwordText)
+                            onLoginSuccess()
+                        } catch (e: Exception) {
+                            errorMessage = e.message ?: "로그인에 실패했습니다."
+                            showLoginError = true
+                        } finally {
+                            isLoading = false
+                        }
                     }
                 },
                 modifier = Modifier
@@ -133,11 +143,19 @@ fun LoginScreen(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-                Text(
-                    text = "로그인",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "로그인",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

@@ -25,6 +25,7 @@ import com.example.unibus.ui.screens.profile.EditProfileScreen
 import com.example.unibus.ui.screens.profile.WithdrawalScreen
 import com.example.unibus.ui.screens.signup.SignupScreen
 import com.example.unibus.ui.theme.UNIBUSTheme
+import com.example.unibus.data.AuthTokenStore
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,6 +80,7 @@ class MainActivity : ComponentActivity() {
                             MainHomeScreen(
                                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
                                 onLogout = {
+                                    AuthTokenStore.clear()
                                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
                                 },
                                 onNavigateToWithdraw = { navController.navigate("withdrawal") },
