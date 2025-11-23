@@ -20,6 +20,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.unibus.ui.theme.UNIBUSTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,11 +32,12 @@ fun FindPasswordScreen(
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
 
-    // 인증/에러 상태
-    var isVerified by remember { mutableStateOf(false) }
-    var isError by remember { mutableStateOf(false) } // 👈 [추가] 불일치 에러 상태
+    // 인증 프로세스 상태
+    var isCodeSent by remember { mutableStateOf(false) }    // 1. 인증번호 발송 여부
+    var verificationCode by remember { mutableStateOf("") } // 2. 입력한 인증번호
+    var isVerified by remember { mutableStateOf(false) }    // 3. 인증 완료 여부 (true면 비번 변경 화면 표시)
 
-    // 비밀번호 변경 상태
+    // 비밀번호 변경 상태 (회원가입과 동일 로직)
     var newPassword by remember { mutableStateOf("") }
     var newPasswordCheck by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
@@ -51,9 +53,7 @@ fun FindPasswordScreen(
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = MaterialTheme.colorScheme.primary,
         focusedLabelColor = MaterialTheme.colorScheme.primary,
-        cursorColor = MaterialTheme.colorScheme.primary,
-        errorBorderColor = MaterialTheme.colorScheme.error, // 에러 시 빨간 테두리
-        errorLabelColor = MaterialTheme.colorScheme.error
+        cursorColor = MaterialTheme.colorScheme.primary
     )
 
     Scaffold(
@@ -92,7 +92,7 @@ fun FindPasswordScreen(
         ) {
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 안내 문구
+            // 안내 문구 (상태에 따라 변경)
             Text(
                 text = if (isVerified) "새로운 비밀번호를 설정해 주세요."
                 else "가입 시 등록한 이름과 이메일을 입력해 주세요.",
@@ -102,74 +102,94 @@ fun FindPasswordScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // --- 1단계: 신원 확인 ---
+            // --- 1단계: 기본 정보 입력 (인증 완료되면 숨기거나 비활성화) ---
             if (!isVerified) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = {
-                        name = it
-                        isError = false // 다시 입력하면 에러 메시지 끄기
-                    },
+                    onValueChange = { name = it },
                     label = { Text("이름") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
-                    colors = textFieldColors,
-                    isError = isError // 에러 시 빨간 테두리
+                    enabled = !isCodeSent, // 코드 보내면 수정 불가
+                    colors = textFieldColors
                 )
 
                 OutlinedTextField(
                     value = email,
-                    onValueChange = {
-                        email = it
-                        isError = false
-                    },
+                    onValueChange = { email = it },
                     label = { Text("이메일") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
-                    colors = textFieldColors,
-                    isError = isError
+                    enabled = !isCodeSent,
+                    colors = textFieldColors
                 )
 
-                // 🚨 [추가] 에러 메시지 표시 영역
-                if (isError) {
-                    Text(
-                        text = "입력하신 정보가 일치하지 않습니다.\n다시 확인해 주세요.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
-                }
-
-                // 확인 버튼
-                Button(
-                    onClick = {
-                        // [테스트 로직] 이름이 "유니", 이메일이 "uni" 일 때만 성공으로 가정
-                        // 나중에 실제 API 연동 시 이 부분을 교체하면 됩니다.
-                        if (name == "유니" && email == "uni") {
-                            isVerified = true
-                            isError = false
-                        } else {
-                            isVerified = false
-                            isError = true // 불일치 시 에러 표시
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    enabled = name.isNotEmpty() && email.isNotEmpty()
-                ) {
-                    Text("확인", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                // 인증번호 발송 버튼
+                if (!isCodeSent) {
+                    Button(
+                        onClick = {
+                            // TODO: 실제 이메일 발송 API 호출
+                            isCodeSent = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("인증번호 발송", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                    }
                 }
             }
 
-            // --- 2단계: 비밀번호 재설정 (신원 확인 완료 시 표시) ---
+            // --- 2단계: 인증번호 입력 (발송됨 && 아직 인증 안됨) ---
+            if (isCodeSent && !isVerified) {
+                Text(
+                    text = "이메일로 발송된 인증번호 6자리를 입력해주세요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                OutlinedTextField(
+                    value = verificationCode,
+                    onValueChange = {
+                        if (it.length <= 6 && it.all { char -> char.isDigit() }) {
+                            verificationCode = it
+                        }
+                    },
+                    label = { Text("인증번호 6자리") },
+                    placeholder = { Text("123456") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    colors = textFieldColors
+                )
+
+                // 인증 확인 버튼
+                Button(
+                    onClick = {
+                        // TODO: 실제 서버 인증 API 호출
+                        // 임시 테스트: 123456 입력 시 성공 처리
+                        if (verificationCode == "123456") {
+                            isVerified = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    enabled = verificationCode.length == 6
+                ) {
+                    Text("인증 확인", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                }
+            }
+
+            // --- 3단계: 비밀번호 재설정 (인증 완료 시 표시) ---
             if (isVerified) {
-                // 새 비밀번호 입력
+                // 새 비밀번호
                 OutlinedTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
@@ -222,10 +242,12 @@ fun FindPasswordScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // 비밀번호 변경 완료 버튼
                 val isFormValid = isPasswordValid && isPasswordMatch
                 Button(
                     onClick = {
-                        onNavigateBack() // 비밀번호 변경 후 복귀
+                        // TODO: 비밀번호 변경 API 호출 -> 성공 시 로그인 화면으로 이동
+                        onNavigateBack() // 예시: 변경 후 로그인 화면으로 복귀
                     },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(12.dp),
@@ -235,11 +257,7 @@ fun FindPasswordScreen(
                         disabledContainerColor = Color.Gray
                     )
                 ) {
-                    Text(
-                        text = "비밀번호 변경하기",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (isFormValid) Color.White else Color.LightGray
-                    )
+                    Text("비밀번호 변경하기", style = MaterialTheme.typography.labelLarge, color = if (isFormValid) Color.White else Color.LightGray)
                 }
             }
         }
