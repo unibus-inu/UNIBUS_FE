@@ -1,0 +1,14 @@
+Changes applied
+1) Prediction ETA polling
+- Added 10s polling loop in PredictionScreen to repeatedly fetch ETA (backend first, fallback to distance/speed) and update UI state.
+- Resets alert arming when destination/stop changes.
+
+2) Arrival alerts
+- Alert now fires when ETA crosses from >60s to <=60s inside the polling loop.
+- Uses NotificationStore so Notification screen shows the new alerts automatically.
+
+3) Stop coordinates
+- Merges route inu-a stop coordinates (when available) into fallback stop coord map for more accurate distance-based ETA.
+
+Notes
+- Build not run here due to gradle wrapper lock permission issue; please run `./gradlew :app:compileDebugKotlin` after fixing permissions.
