@@ -29,18 +29,43 @@ data class Destination(val id: Int, val name: String, val detail: String, val ty
 // ★ [수정됨] 등교 모드: 건물 목록
 val buildingList = listOf(
     Destination(1, "1호관", "대학본부 / 행정실", "building"),
-    Destination(2, "2호관", "교수회관 / 교직원식당", "building"),
-    Destination(7, "7호관", "정보기술대학", "building"),
-    Destination(8, "8호관", "공과대학 / 도시과학", "building"),
-    Destination(15, "15호관", "인문대학", "building"),
+    Destination(2, "2호관", "교수회관", "building"),
+    Destination(3, "3호관", "INU CUBE", "building"),
+    Destination(4, "4호관", "정보전산원 (BM컨텐츠관)", "building"),
+    Destination(5, "5호관", "자연과학대학", "building"),
     Destination(6, "6호관", "학산도서관 (Library)", "building"),
+    Destination(7, "7호관", "정보기술대학 (IT College)", "building"),
+    Destination(8, "8호관", "공과대학, 도시과학대학", "building"),
+    Destination(9, "9호관", "공동실험실습관", "building"),
+    Destination(10, "10호관", "게스트하우스", "building"),
+    Destination(11, "11호관", "복지회관 (학생식당/매점)", "building"),
+    Destination(12, "12호관", "컨벤션센터", "building"),
+    Destination(13, "13호관", "사회과학 / 법학 / 글로벌정경대학", "building"),
+    Destination(14, "14호관", "경영대학, 동북아물류대학원", "building"),
+    Destination(15, "15호관", "인문대학", "building"),
+    Destination(16, "16호관", "예술체육대학", "building"),
+    Destination(17, "17호관", "학생회관 (동아리/보건실/우체국)", "building"),
+    Destination(18, "18-1호관", "제1기숙사", "building"),
+    Destination(18, "18-2호관", "제2기숙사", "building"),
+    Destination(18, "18-3호관", "제3기숙사", "building"),
+    Destination(19, "19호관", "융합자유전공대학", "building"),
+    Destination(20, "20호관", "스포츠센터, 골프연습장", "building"),
+    Destination(21, "21호관", "체육관", "building"),
+    Destination(22, "22호관", "학군단", "building"),
+    Destination(23, "23호관", "강당, 공연장", "building"),
+    Destination(24, "24호관", "전망타워", "building"),
+    Destination(25, "25호관", "해둥실어린이집", "building"),
+    Destination(26, "26호관", "온실", "building"),
+    Destination(27, "27호관", "제2공동실험실습관", "building"),
+    Destination(28, "28호관", "도시과학대학", "building"),
+    Destination(29, "29호관", "생명공학부", "building"),
+    Destination(41, "41호관", "바이오컴플렉스", "building")
 )
 
 // ★ [추가] 하교 모드: 역 목록
 val stationList = listOf(
     Destination(201, "인천대입구역", "인천 1호선 (캠퍼스 타운 방면)", "station"),
     Destination(202, "지식정보단지역", "인천 1호선 (송도달빛축제공원 방면)", "station"),
-    Destination(203, "센트럴파크역", "인천 1호선 (국제업무지구 방면)", "station"),
 )
 
 // 메인 진입점 Composable
