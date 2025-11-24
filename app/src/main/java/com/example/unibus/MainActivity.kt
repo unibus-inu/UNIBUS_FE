@@ -3,11 +3,12 @@ package com.example.unibus
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels // [중요] ViewModel 생성을 위해 추가
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf // [추가] 리스트 관리를 위해 필요
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -15,24 +16,26 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.unibus.data.AuthTokenStore
 import com.example.unibus.ui.screens.findpassword.FindPasswordScreen
 import com.example.unibus.ui.screens.home.BusInfo
 import com.example.unibus.ui.screens.home.MainHomeScreen
 import com.example.unibus.ui.screens.login.LoginScreen
 import com.example.unibus.ui.screens.notifications.NotificationScreen
+import com.example.unibus.ui.screens.notifications.NotificationSettingsScreen // [추가] 알림 설정 화면
+import com.example.unibus.ui.screens.notifications.NotificationTarget // [추가] 데이터 모델
 import com.example.unibus.ui.screens.prediction.PredictionScreen
 import com.example.unibus.ui.screens.profile.EditProfileScreen
-import com.example.unibus.ui.screens.profile.ProfileViewModel // [중요] ViewModel import
+import com.example.unibus.ui.screens.profile.ProfileViewModel
 import com.example.unibus.ui.screens.profile.WithdrawalScreen
 import com.example.unibus.ui.screens.signup.SignupScreen
 import com.example.unibus.ui.theme.UNIBUSTheme
-import com.example.unibus.data.AuthTokenStore
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // [1] 앱 전체에서 공유할 ViewModel을 여기서 딱 한번 만듭니다.
+        // 앱 전체에서 공유할 ViewModel
         val sharedViewModel: ProfileViewModel by viewModels()
 
         setContent {
@@ -43,14 +46,22 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
 
-                    // 알림 상태 관리
+                    // ---------------------------------------------------------
+                    // [상태 관리] 앱 전역에서 유지되어야 할 데이터들
+                    // ---------------------------------------------------------
+
+                    // 1. 알림 뱃지 상태
                     var hasNewNotifications by remember { mutableStateOf(true) }
 
-                    // 모드 상태 전역 관리
+                    // 2. 등/하교 모드 상태
                     var isGoingToSchool by remember { mutableStateOf(false) }
 
-                    // 지도 경로 상태 관리
+                    // 3. 지도 경로(선택된 버스) 상태
                     var mainSelectedBus by remember { mutableStateOf<BusInfo?>(null) }
+
+                    // 4. [신규] 알림 설정된 버스 목록 (화면 이동해도 유지됨)
+                    val sharedMonitoredList = remember { mutableStateListOf<NotificationTarget>() }
+                    // ---------------------------------------------------------
 
                     NavHost(navController = navController, startDestination = "login") {
 
@@ -90,9 +101,12 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToWithdraw = { navController.navigate("withdrawal") },
 
-                                // 알림 관련
+                                // 알림 화면 이동
                                 hasNewNotifications = hasNewNotifications,
                                 onNavigateToNotifications = { navController.navigate("notifications") },
+
+                                // [신규] 알림 설정 관리 화면으로 이동
+                                onNavigateToNotificationSettings = { navController.navigate("notification_settings") },
 
                                 // 예측 화면 이동
                                 onNavigateToPrediction = { navController.navigate("prediction") },
@@ -105,8 +119,11 @@ class MainActivity : ComponentActivity() {
                                 initialSelectedBus = mainSelectedBus,
                                 onSetSelectedBus = { bus -> mainSelectedBus = bus },
 
-                                // [중요] 공유 ViewModel을 전달합니다.
-                                viewModel = sharedViewModel
+                                // 공유 ViewModel 전달
+                                viewModel = sharedViewModel,
+
+                                // [신규] 공유된 알림 리스트 전달
+                                sharedMonitoredList = sharedMonitoredList
                             )
                         }
 
@@ -114,7 +131,6 @@ class MainActivity : ComponentActivity() {
                         composable("edit_profile") {
                             EditProfileScreen(
                                 onBackClick = { navController.popBackStack() },
-                                // [중요] 같은 ViewModel을 전달해서 데이터가 이어지게 합니다.
                                 viewModel = sharedViewModel
                             )
                         }
@@ -129,7 +145,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 7. 알림 메시지함 화면
+                        // 7. 알림 메시지함 화면 (도착 알림 내역)
                         composable("notifications") {
                             NotificationScreen(
                                 onBackClick = {
@@ -139,7 +155,18 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 8. 예측 화면
+                        // 8. [신규] 알림 설정 관리 화면 (목록 확인 및 삭제)
+                        composable("notification_settings") {
+                            NotificationSettingsScreen(
+                                monitoredList = sharedMonitoredList, // 공유된 리스트 전달
+                                onRemoveNotification = { target ->
+                                    sharedMonitoredList.remove(target) // 삭제 로직 수행
+                                },
+                                onBackClick = { navController.popBackStack() }
+                            )
+                        }
+
+                        // 9. 예측 화면
                         composable("prediction") {
                             PredictionScreen(
                                 onBackClick = { navController.popBackStack() },
